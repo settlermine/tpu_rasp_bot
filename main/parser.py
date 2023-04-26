@@ -11,7 +11,7 @@ import pickle
 REGION = 'Asia/Tomsk'
 GROUP = 36897
 
-
+# Those methods only used inside file
 def change_date_format_to_rasp(year: int, week: int) -> dict:
     week = int(week) + 18
     year = year - 1
@@ -110,7 +110,10 @@ def get_week_timetable(group_id: int, year: int, week: int) -> tuple:
     return week_timetable
 
 
+#Method for usage
 def get_day_timetable(group_id: int, date: datetime.date):
+    '''
+    '''
     format_date = change_date_format_to_rasp(date.year, date.isocalendar()[1])
     date_string = f'{str(date.day).zfill(2)}.{str(date.month).zfill(2)}.{str(date.year)[-2:]}'
     if date.weekday() < 6:

@@ -12,3 +12,10 @@ venv\Sripts\activate
 ~~~
 pip install -r requirements.txt
 ~~~
+
+# Парсинг селениумом
+В терминале последовательно пишем команды
+~~~
+sudo apt install wget
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+~~~
