@@ -75,7 +75,7 @@ def handle_cell(cell: BeautifulSoup) -> tuple:
 
 
 def get_week_timetable(group_id: int, year: int, week: int) -> tuple:
-    file_path = 'data\\'+f'{week}_{year}_{group_id}.bin'
+    file_path = 'main/data/'+f'{week}_{year}_{group_id}.bin'
     if os.path.isfile(file_path):
         with open(file_path, 'rb') as file:
             week_timetable = pickle.load(file)
@@ -112,8 +112,6 @@ def get_week_timetable(group_id: int, year: int, week: int) -> tuple:
 
 #Method for usage
 def get_day_timetable(group_id: int, date: datetime.date):
-    '''
-    '''
     format_date = change_date_format_to_rasp(date.year, date.isocalendar()[1])
     date_string = f'{str(date.day).zfill(2)}.{str(date.month).zfill(2)}.{str(date.year)[-2:]}'
     if date.weekday() < 6:
