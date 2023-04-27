@@ -13,7 +13,7 @@ import logging
 from telebot import asyncio_helper
 
 #This line can be deleted if it doesn't work with it
-asyncio_helper.proxy = 'http://proxy.server:3128'
+# asyncio_helper.proxy = 'http://proxy.server:3128'
 
 class CommandMessages:
     def __new__(cls): pass
