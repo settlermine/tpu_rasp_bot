@@ -5,7 +5,7 @@ import pickle
 from telebot import types
 import sqlite3 as sq
 import requests
-from parser import get_day_timetable
+from site_parser import get_day_timetable
 import datetime
 import pytz
 import asyncio
@@ -133,84 +133,82 @@ if __name__ == '__main__':
         if message.chat.type != 'private':
             return
 
-        match message.text:
-            case CommandMessages.CHANGE_GROUP_MESSAGE | CommandMessages.SET_GROUP_MESSAGE:
-                users_statements[user_id] = 'changing_group'
-                caption = 'Введите id своей группы. Чтобы его узнать, зайдите на сайт с расписанием и откройте расписание для своей группы на любую неделю. Цифры, подчеркнутые на скриншоте, в url страницы будут являться id вашей группы. Это нужно сделать единожды.'
-                markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-                button = types.KeyboardButton(CommandMessages.BACK_TO_MENU_MESSAGE)
-                markup.add(button)
-                with open('main/group_id.png', 'rb') as photo:
-                    await bot.send_photo(user_id, photo, caption=caption, reply_markup=markup)
+        if message.text == CommandMessages.CHANGE_GROUP_MESSAGE or message.text == CommandMessages.SET_GROUP_MESSAGE:
+            users_statements[user_id] = 'changing_group'
+            caption = 'Введите id своей группы. Чтобы его узнать, зайдите на сайт с расписанием и откройте расписание для своей группы на любую неделю. Цифры, подчеркнутые на скриншоте, в url страницы будут являться id вашей группы. Это нужно сделать единожды.'
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+            button = types.KeyboardButton(CommandMessages.BACK_TO_MENU_MESSAGE)
+            markup.add(button)
+            with open('main/group_id.png', 'rb') as photo:
+                await bot.send_photo(user_id, photo, caption=caption, reply_markup=markup)
 
-            case CommandMessages.BACK_TO_MENU_MESSAGE:
-                try:
+        elif message.text == CommandMessages.BACK_TO_MENU_MESSAGE:
+            try:
+                del users_statements[user_id]
+            except KeyError:
+                pass
+            await start(message)
+
+        elif message.text == CommandMessages.CURRENT_DAY_MESSAGE:
+            date = datetime.datetime.now(pytz.timezone(REGION))
+            timetable = get_day_timetable(get_user_group_id(user_id), date)
+            await send_day_timetable(user_id, timetable)
+
+        elif message.text == CommandMessages.NEXT_DAY_MESSAGE:
+            date = datetime.datetime.now(pytz.timezone(REGION)) + datetime.timedelta(days=1)
+            timetable = get_day_timetable(get_user_group_id(user_id), date)
+            await send_day_timetable(user_id, timetable)
+
+        elif message.text == CommandMessages.DATE_TIMETABLE_MESSAGE:
+            users_statements[user_id] = 'choosing_date'
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+            button = types.KeyboardButton(CommandMessages.BACK_TO_MENU_MESSAGE)
+            markup.add(button)
+            await bot.send_message(user_id, 'Напишите дату в формате ДД.ММ.ГГ', reply_markup=markup)
+
+        elif message.text == CommandMessages.CURRENT_WEEK_MESSAGE:
+            current_date = datetime.datetime.now(pytz.timezone(REGION))
+            for delta in [5 - current_date.weekday() - i for i in range(5, -1, -1)]:
+                date = current_date + datetime.timedelta(days=delta)
+                timetable = get_day_timetable(get_user_group_id(user_id), date)
+                await send_day_timetable(user_id, timetable)
+
+        elif message.text == CommandMessages.NEXT_WEEK_MESSAGE:
+            current_date = datetime.datetime.now(pytz.timezone(REGION)) + datetime.timedelta(days=7)
+            for delta in [5 - current_date.weekday() - i for i in range(5, -1, -1)]:
+                date = current_date + datetime.timedelta(days=delta)
+                timetable = get_day_timetable(get_user_group_id(user_id), date)
+                await send_day_timetable(user_id, timetable)
+
+        elif message.text == CommandMessages.NEXT_LESSON_MESSAGE:
+            current_datetime = datetime.datetime.now(pytz.timezone(REGION))
+
+        else:
+            if user_id not in users_statements:
+                return
+            if users_statements[user_id] == 'changing_group':
+                r = requests.get(f'https://rasp.tpu.ru/gruppa_{message.text}/2021/40/view.html')
+                if r.status_code == 404:
+                    await bot.send_message(user_id, 'Некорректно введен id группы. Попробуйте еще раз.')
+                else:
+                    set_user_group_id(user_id, int(message.text))
                     del users_statements[user_id]
-                except KeyError:
-                    pass
-                await start(message)
+                    await bot.send_message(user_id,
+                                            'Группа задана успешно!',
+                                            reply_markup=start_menu(user_id))
 
-            case CommandMessages.CURRENT_DAY_MESSAGE:
-                date = datetime.datetime.now(pytz.timezone(REGION))
-                timetable = get_day_timetable(get_user_group_id(user_id), date)
-                await send_day_timetable(user_id, timetable)
-
-            case CommandMessages.NEXT_DAY_MESSAGE:
-                date = datetime.datetime.now(pytz.timezone(REGION)) + datetime.timedelta(days=1)
-                timetable = get_day_timetable(get_user_group_id(user_id), date)
-                await send_day_timetable(user_id, timetable)
-
-            case CommandMessages.DATE_TIMETABLE_MESSAGE:
-                users_statements[user_id] = 'choosing_date'
-                markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-                button = types.KeyboardButton(CommandMessages.BACK_TO_MENU_MESSAGE)
-                markup.add(button)
-                await bot.send_message(user_id, 'Напишите дату в формате ДД.ММ.ГГ', reply_markup=markup)
-
-            case CommandMessages.CURRENT_WEEK_MESSAGE:
-                current_date = datetime.datetime.now(pytz.timezone(REGION))
-                for delta in [5 - current_date.weekday() - i for i in range(5, -1, -1)]:
-                    date = current_date + datetime.timedelta(days=delta)
+            elif users_statements[user_id] == 'choosing_date':
+                if match := re.fullmatch(r'(\d{1,2})[.](\d{1,2})[.](\d{2})', message.text):
+                    day, month, year = map(int, match.groups())
+                    year = 2000 + year
+                    try:
+                        date = datetime.date(year, month, day)
+                    except ValueError:
+                        await bot.send_message(user_id, 'Неправильно введена дата. Попробуйте еще раз')
+                        return
                     timetable = get_day_timetable(get_user_group_id(user_id), date)
                     await send_day_timetable(user_id, timetable)
-
-            case CommandMessages.NEXT_WEEK_MESSAGE:
-                current_date = datetime.datetime.now(pytz.timezone(REGION)) + datetime.timedelta(days=7)
-                for delta in [5 - current_date.weekday() - i for i in range(5, -1, -1)]:
-                    date = current_date + datetime.timedelta(days=delta)
-                    timetable = get_day_timetable(get_user_group_id(user_id), date)
-                    await send_day_timetable(user_id, timetable)
-
-            case CommandMessages.NEXT_LESSON_MESSAGE:
-                current_datetime = datetime.datetime.now(pytz.timezone(REGION))
-
-            case _:
-                if user_id not in users_statements:
-                    return
-                match users_statements[user_id]:
-                    case 'changing_group':
-                        r = requests.get(f'https://rasp.tpu.ru/gruppa_{message.text}/2021/40/view.html')
-                        if r.status_code == 404:
-                            await bot.send_message(user_id, 'Некорректно введен id группы. Попробуйте еще раз.')
-                        else:
-                            set_user_group_id(user_id, int(message.text))
-                            del users_statements[user_id]
-                            await bot.send_message(user_id,
-                                                   'Группа задана успешно!',
-                                                   reply_markup=start_menu(user_id))
-
-                    case 'choosing_date':
-                        if match := re.fullmatch(r'(\d{1,2})[.](\d{1,2})[.](\d{2})', message.text):
-                            day, month, year = map(int, match.groups())
-                            year = 2000 + year
-                            try:
-                                date = datetime.date(year, month, day)
-                            except ValueError:
-                                await bot.send_message(user_id, 'Неправильно введена дата. Попробуйте еще раз')
-                                return
-                            timetable = get_day_timetable(get_user_group_id(user_id), date)
-                            await send_day_timetable(user_id, timetable)
-                        else:
-                            await bot.send_message(user_id, 'Неправильно введена дата. Попробуйте еще раз')
+                else:
+                    await bot.send_message(user_id, 'Неправильно введена дата. Попробуйте еще раз')
 
     asyncio.run(bot.polling(non_stop=True))
