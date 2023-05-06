@@ -10,6 +10,7 @@ import pickle
 
 REGION = 'Asia/Tomsk'
 GROUP = 36897
+CLEANING_TIME = 12 * 3600
 
 # Those methods only used inside file
 def change_date_format_to_rasp(year: int, week: int) -> dict:
@@ -21,6 +22,9 @@ def change_date_format_to_rasp(year: int, week: int) -> dict:
     return {'year': year,
             'week': week}
 
+def modification_date(filename):
+    t = os.path.getmtime(filename)
+    return datetime.fromtimestamp(t)
 
 def get_page(group_id: int, year: int, week: int) -> str:
     options = webdriver.ChromeOptions()
@@ -77,6 +81,8 @@ def handle_cell(cell: BeautifulSoup) -> tuple:
 def get_week_timetable(group_id: int, year: int, week: int) -> tuple:
     file_path = 'main/data/'+f'{week}_{year}_{group_id}.bin'
     if os.path.isfile(file_path):
+        if (datetime.now() - modification_date(file_path)).total_seconds() > CLEANING_TIME:
+            os.remove(file_path)
         with open(file_path, 'rb') as file:
             week_timetable = pickle.load(file)
             return week_timetable
