@@ -82,7 +82,6 @@ def get_week_timetable(group_id: int, year: int, week: int) -> tuple:
     file_path = 'main/data/'+f'{week}_{year}_{group_id}.bin'
     if os.path.isfile(file_path):
         if (datetime.datetime.now() - modification_date(file_path)).total_seconds() < CLEANING_TIME:
-            print('Inside if')
             with open(file_path, 'rb') as file:
                 week_timetable = pickle.load(file)
                 return week_timetable
